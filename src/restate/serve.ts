@@ -1,5 +1,5 @@
 import * as restate from "@restatedev/restate-sdk/fetch";
-import { claimApprovalAgentWithHumanApproval } from "@/restate/greeter";
+import { claimApprovalAgentWithHumanApproval } from "@/restate/greeter2";
 
 const endpoint = restate.createEndpointHandler({
   services: [claimApprovalAgentWithHumanApproval],

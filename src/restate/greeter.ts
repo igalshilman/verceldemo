@@ -1,4 +1,5 @@
 import * as restate from "@restatedev/restate-sdk";
+import { serde } from "@restatedev/restate-sdk-zod";
 import { durableCalls } from "@restatedev/vercel-ai-middleware";
 import { openai } from "@ai-sdk/openai";
 import { generateText, tool, wrapLanguageModel, stepCountIs } from "ai";
@@ -14,13 +15,13 @@ export const InsuranceClaimSchema = z.object({
 
 export type InsuranceClaim = z.infer<typeof InsuranceClaimSchema>;
 
-export const claimApprovalAgentWithHumanApproval = restate.service({
-  name: "ClaimApprovalAgent",
+export const claimApprovalAgentWithHumanApproval = restate.workflow({
+  name: "LoanApprovalWorkflow",
   handlers: {
-    run: async (ctx: restate.Context, { prompt }: { prompt: string }) => {
+    run: async (ctx: restate.WorkflowContext, amount: number) => {
       const model = wrapLanguageModel({
         model: openai("gpt-4o"),
-        middleware: durableCalls(ctx, { maxRetryAttempts: 3 }),
+        middleware: durableCalls(ctx),
       });
 
       const { text } = await generateText({
@@ -29,35 +30,38 @@ export const claimApprovalAgentWithHumanApproval = restate.service({
           "You are an insurance claim evaluation agent. Use these rules: " +
           "* if the amount is more than 1000, ask for human approval, " +
           "* if the amount is less than 1000, decide by yourself",
-        prompt,
+        prompt: `Please evaluate the following insurance claim: ${amount}.`,
         tools: {
           humanApproval: tool({
             description: "Ask for human approval for high-value claims.",
             inputSchema: InsuranceClaimSchema,
-            execute: async (claim: InsuranceClaim): Promise<boolean> => {
-              const approval = ctx.awakeable<boolean>();
-              await ctx.run("request-review", () =>
-                requestHumanReview(claim, approval.id),
+            execute: async (claim: InsuranceClaim) => {
+
+              await ctx.run("request human review", () =>
+                notifyHumanReviewer(claim, ctx.key)
               );
-              return approval.promise;
+
+              return await ctx.promise<boolean>("approval");
             },
           }),
         },
         stopWhen: [stepCountIs(5)],
       });
-      return text;
+
+      return { response: text };
+    },
+
+    onHumanApproval: async (
+      ctx: restate.WorkflowSharedContext,
+      approval: boolean
+    ) => {
+      ctx.promise("approval").resolve(approval);
     },
   },
 });
 
 // UTILS
 
-export function requestHumanReview(
-  message: InsuranceClaim,
-  responseId: string = "",
-) {
-  console.log(`>>> ${message} \n
-  Submit your claim review via: \n
-    curl localhost:8080/restate/awakeables/${responseId}/resolve --json 'true'
-  `);
+export function notifyHumanReviewer(message: InsuranceClaim, key: string) {
+  console.log(`>>> ${message} \n`);
 }

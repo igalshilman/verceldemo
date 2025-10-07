@@ -70,10 +70,8 @@ export const claimApprovalAgentWithHumanApproval = restate.workflow({
 
 // UTILS
 
-export function notifyHumanReviewer(
-  message: InsuranceClaim,
-  responseId: string = "",
-) {
+async function notifyHumanReviewer(message: InsuranceClaim, key: string) {
+  await new Promise((r) => setTimeout(r, 2000));
   console.log(`>>> ${message} \n`);
 }
 

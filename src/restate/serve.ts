@@ -1,8 +1,11 @@
 import * as restate from "@restatedev/restate-sdk/fetch";
-import { claimApprovalAgentWithHumanApproval } from "@/restate/greeter2";
+import { agent } from "@/restate/agent";
+import { agentExecutor } from "@/restate/agent_executor";
+import {modal} from "@/restate/modal";
+import { sandbox } from "@/restate/sandbox";
 
 const endpoint = restate.createEndpointHandler({
-  services: [claimApprovalAgentWithHumanApproval],
+  services: [agent, agentExecutor, modal, sandbox],
   identityKeys: ["publickeyv1_A25Cm7CqPJqoHUj8KrvSGrs6g5wE1TGY2HMBVedFd2s5"],
 });
 
